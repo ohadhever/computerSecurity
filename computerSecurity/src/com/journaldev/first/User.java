@@ -1,5 +1,9 @@
 package com.journaldev.first;
 
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -8,6 +12,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.sql.*;
 import java.util.Arrays;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import com.sun.media.jfxmedia.track.Track.Encoding;
 //import java.sql.Connection;
@@ -20,6 +29,8 @@ public class User {
 	String lName;
 	String email;
 	String pass;
+	String secPass;
+	String trdPass;
 	byte[] salt; 
 	//byte[] pass;
 	
@@ -46,7 +57,7 @@ public class User {
 	}
 	
 	public String getEmail() {
-		return email;
+		return this.email;
 	}
 	
 	public void setSalt() {
@@ -62,8 +73,7 @@ public class User {
 	}
 	
 	
-	public void setEmail(User user) {
-		String newEmail = user.fName + user.lName+"@CS.com";
+	public void setEmail(String newEmail) {
 		this.email=newEmail;
 	}
 	
@@ -72,14 +82,21 @@ public class User {
 	}
 	
 	public void setPass(String pass) throws NoSuchAlgorithmException {
-		MessageDigest digest = MessageDigest.getInstance("MD5");
-		digest.reset();
-		digest.update(this.getSalt());
-		System.out.println("this is user salt: "+this.toString());
-		byte[] hash = digest.digest(pass.getBytes());
-		this.pass = bytesToStringHex(hash);
 		
+		Conf conf = getConf();
 		
+		if (passCheck(pass, conf)) {
+			MessageDigest digest = MessageDigest.getInstance("MD5");
+			digest.reset();
+			digest.update(this.getSalt());
+			System.out.println("this is user salt: "+this.toString());
+			byte[] hash = digest.digest(pass.getBytes());
+			this.pass = bytesToStringHex(hash);
+			
+		}
+		
+		else { System.out.println("Password is not valid!");} 
+			
 	}
 	
 	private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
@@ -94,11 +111,30 @@ public class User {
 		return new String(hexChars);
 	}
 
+
+	
 	@Override
 	public String toString() {
-		return "User [fName=" + fName + ", lName=" + lName + ", email=" + email + ", pass=" + pass + ", salt= "+Arrays.toString(getSalt())+ "]";
+		return "User [fName=" + fName + ", lName=" + lName + ", email=" + email + ", pass=" + pass + ", secPass="
+				+ secPass + ", trdPass=" + trdPass + ", salt=" + Arrays.toString(salt) + "]";
 	}
-	
+
+	public String getSecPass() {
+		return secPass;
+	}
+
+	public void setSecPass(String secPass) {
+		this.secPass = secPass;
+	}
+
+	public String getTrdPass() {
+		return trdPass;
+	}
+
+	public void setTrdPass(String trdPass) {
+		this.trdPass = trdPass;
+	}
+
 	public Boolean insertUserToDB() {
 		try {
 					
@@ -116,7 +152,9 @@ public class User {
 			else {System.out.println("connection NOT ok");};
 			Statement myStmt = conn.createStatement();
 			System.out.println("setSameSalt:"+Arrays.toString(this.getSalt()));
-		
+			
+			if (this.getPass() == null) {System.out.println("pass invalid - insert"); return false;}
+			
 			int x = myStmt.executeUpdate("INSERT INTO user"+"(username,email,password,salt) VALUES "+"('"+this.getfName()+this.getlName()+"','"+this.getEmail()+"','"+this.getPass()+"','"+Arrays.toString(this.getSalt())+"')");
 
 			if(x>0) {
@@ -168,9 +206,11 @@ public class User {
 					
 				user.setfName(rs.getString(1));
 				user.setlName(rs.getString(1));
-				user.email = (rs.getString(2));
+				user.setEmail(rs.getString(2));
 				user.setSamePass (rs.getString(3));
 				user.setSameSalt(rs.getString(5));
+				user.setSecPass(rs.getString(6));
+				user.setTrdPass(rs.getString(7));
 				System.out.println("this is string salt: "+(rs.getString(5)));
 				System.out.println("this is returned items: "+user.toString());
 				}
@@ -218,7 +258,7 @@ public class User {
 	
 	public Boolean deleteUserFromDB() {
 		System.out.println("delete "+this.fName+" from DB");
-		String query = "DELETE FROM user WHERE email = \""+this.email+"\";";
+		String query = "DELETE FROM user WHERE username = \""+this.fName+this.lName+"\";";
 			
 		try {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
@@ -235,6 +275,7 @@ public class User {
 			User dbUser = new User();
 			dbUser = dbUser.retrunUserFromDB(this.getfName()+this.getlName());
 			this.salt = dbUser.salt;
+			this.setEmail(dbUser.getEmail());
 			//String userPass = this.getPass();
 			//String DBuserPass = dbUser.getPass();
 			System.out.println("this is dbuser: "+dbUser.toString());
@@ -250,6 +291,7 @@ public class User {
 					conn.close();
 					return false;	
 				}
+				
 				System.out.println("this user has been deleted from DB : "+this.toString());
 				
 				myStmt.close();
@@ -288,10 +330,70 @@ public class User {
 		return true;
 	}
 	
+	private boolean passCheck (String pass, Conf conf) {
+		System.out.println("this is pass - passCheck:" +pass);
+		
+		boolean hasdigits = (!conf.isDigits());
+		boolean isUpper = (!conf.isUpCase()); 
+		boolean isLower = (!conf.isLowCase());
+		boolean isSpecial = (!conf.isSepChar());
+		
+		if (pass.length() < conf.getLenght()) {
+			System.out.println("the pass is too short");
+			return false;
+		}
+		
+		hasdigits = pass.matches(".*\\d.*");
+		isSpecial = pass.matches(".*[!@#$%^&*].*");
+		
+		char ch;
+		
+		for (int i = 0 ; i < pass.length() ; i ++) {
+			ch = pass.charAt(i);
+			if (Character.isLowerCase(ch)) isLower = true;
+			if (Character.isUpperCase(ch)) isUpper = true;
+			
+		}
+		
+		System.out.println("this is hasdigits, isUpper, isLower, isSpecial: "+hasdigits + isUpper + isLower + isSpecial);
+		
+		return hasdigits & isUpper & isLower & isSpecial;
+		
+	}
 	
+	public Conf getConf() {
+		
+		Conf conf = new Conf();
+		
 	
-	
-	
+		JSONParser parser = new JSONParser();
+		
+		try {
+			Object obj = parser.parse(new FileReader("C:\\Users/ohad/git/computerSecurity/computerSecurity/src/conf.json"));
+			
+			JSONObject jsonObject = (JSONObject) obj;
+			conf.setUpCase(jsonObject.get("upCase"));
+			conf.setLowCase(jsonObject.get("lowCase"));
+			conf.setSepChar(jsonObject.get("speChar"));
+			conf.setDigits(jsonObject.get("digits"));
+			conf.setLenght((long) jsonObject.get("length"));
+			conf.setLogAtt((long) jsonObject.get("logAtt"));
+			
+			System.out.println("this is conf: "+ conf.toString());
+			
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return conf;
+		}
 }
 
 

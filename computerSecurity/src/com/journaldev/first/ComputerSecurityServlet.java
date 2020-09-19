@@ -58,7 +58,7 @@ public class ComputerSecurityServlet extends HttpServlet {
 		if (user.getfName() != null) {
 			
 		user.setlName(request.getParameter("lname"));
-		user.setEmail(user);
+		user.setEmail(request.getParameter("email"));
 		user.setSalt();
 		
 		try {
@@ -82,7 +82,7 @@ public class ComputerSecurityServlet extends HttpServlet {
 			
 			deleteUser.setlName(request.getParameter("deletelname"));
 			deleteUser.setSalt();
-			deleteUser.setEmail(deleteUser);
+			deleteUser.setEmail(request.getParameter("deleteemail"));
 			
 			deleteUser.setSamePass(request.getParameter("deletepass"));;
 			

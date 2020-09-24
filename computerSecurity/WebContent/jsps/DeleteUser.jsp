@@ -24,7 +24,7 @@
 <br><input type="text" id="deletelname" name="deletelname" value="israeli">
 <br><label for="pass">Password:</label>
 <br><input type="password" id="pass" name="deletepass" value=""><br>
-<br><input type="submit" value="Delete">
+<br><input type="submit" value="Delete" onclick = "alert('user deleted')">
 </form>
 </article>
 </body>

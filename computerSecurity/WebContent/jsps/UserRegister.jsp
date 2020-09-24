@@ -22,14 +22,19 @@
 	<br><input type="password" id="pass" name="pass" value=""><br>
 	<br><input type="submit" value="Submit"></form>
 	
-	<br><button id="btn" class="button button2" onclick = "alert('user deleted')" >Delete User</button>
+	<br><button id="btn" class="button2" >Delete User</button>
 	<script type="text/javascript">
     	document.getElementById("btn").onclick = function () {
        	location.href = "http://localhost:8693/computerSecurity/jsps/DeleteUser.jsp";
     	};
 	</script>
+	
 </article>
-<img src="pic2.png" alt="cool pic" width="200" height="200">
+<h2>THE PASSWORED MUST MEET THE FOLLOWING REQUIREMENTS:</h2>
+<h3>1. at least one Upper Case letter </h3>
+<h3>2. at least one Lower Case letter </h3>
+<h3>3. at least one digit </h3>
+<h3>4. at least one Special character </h3>
 </body>
 </html>
 

@@ -62,7 +62,10 @@ public class ComputerSecurityServlet extends HttpServlet {
 		user.setSalt();
 		
 		try {
-			user.setPass(request.getParameter("pass"));
+			if(!user.setPass(request.getParameter("pass"))) {
+				RequestDispatcher dispatcher = request.getRequestDispatcher("/jsps/ErrorPage.jsp");
+				dispatcher.forward(request, response);
+			}
 		} catch (NoSuchAlgorithmException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
@@ -70,7 +73,10 @@ public class ComputerSecurityServlet extends HttpServlet {
 		
 		
 		System.out.println("this is insert user info: " + user.toString() );
-			user.insertUserToDB(); 
+			if(!user.insertUserToDB()){
+				RequestDispatcher dispatcher = request.getRequestDispatcher("/jsps/ErrorPage.jsp");
+				dispatcher.forward(request, response);
+			}
 		}
 		
 		
@@ -89,6 +95,8 @@ public class ComputerSecurityServlet extends HttpServlet {
 			System.out.println("this is delete user info: " + deleteUser.toString() );
 			deleteUser.deleteUserFromDB(); 
 			
+			RequestDispatcher dispatcher = request.getRequestDispatcher("/jsps/UserRegister.jsp");
+			dispatcher.forward(request, response);
 		}
 		
 		

@@ -19,6 +19,9 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 import com.sun.media.jfxmedia.track.Track.Encoding;
+import java.util.Scanner;      // Required for the scanner
+import java.io.BufferedReader;
+import java.io.File;    
 //import java.sql.Connection;
 //import java.sql.DriverManager;
 //import java.sql.Statement;
@@ -81,21 +84,22 @@ public class User {
 		return pass;
 	}
 	
-	public void setPass(String pass) throws NoSuchAlgorithmException {
+	public boolean setPass(String pass) throws NoSuchAlgorithmException {
 		
 		Conf conf = getConf();
 		
-		if (passCheck(pass, conf)) {
-			MessageDigest digest = MessageDigest.getInstance("MD5");
-			digest.reset();
-			digest.update(this.getSalt());
-			System.out.println("this is user salt: "+this.toString());
-			byte[] hash = digest.digest(pass.getBytes());
-			this.pass = bytesToStringHex(hash);
-			
-		}
+		if (!passCheck(pass, conf)) {
+			System.out.println("Password is not valid!");
+			return false;
+			}
 		
-		else { System.out.println("Password is not valid!");} 
+		MessageDigest digest = MessageDigest.getInstance("SHA256");
+		digest.reset();
+		digest.update(this.getSalt());
+		System.out.println("this is user salt: "+this.toString());
+		byte[] hash = digest.digest(pass.getBytes());
+		this.pass = bytesToStringHex(hash);
+			return true;
 			
 	}
 	
@@ -140,7 +144,7 @@ public class User {
 					
 			//System.out.println("INSERT INTO user"+"(username,email,password) VALUES "+"('"+textField.getText()+"','"+textField_1.getText()+"','"+textField_2.getText()+"')");
 			
-			
+			if (retrunUserFromDB(this.getfName()+this.getlName()) != null) {System.out.println("this user is alredy exist in DB"); return false;}
 			
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			///System.out.println("User details is: " + this.toString());	
@@ -151,11 +155,11 @@ public class User {
 			}
 			else {System.out.println("connection NOT ok");};
 			Statement myStmt = conn.createStatement();
-			System.out.println("setSameSalt:"+Arrays.toString(this.getSalt()));
+			System.out.println("setSameSalt - insert:"+Arrays.toString(this.getSalt()));
 			
 			if (this.getPass() == null) {System.out.println("pass invalid - insert"); return false;}
 			
-			int x = myStmt.executeUpdate("INSERT INTO user"+"(username,email,password,salt) VALUES "+"('"+this.getfName()+this.getlName()+"','"+this.getEmail()+"','"+this.getPass()+"','"+Arrays.toString(this.getSalt())+"')");
+			int x = myStmt.executeUpdate("INSERT INTO user"+"(username,email,password,salt,secPass,trdPass) VALUES "+"('"+this.getfName()+this.getlName()+"','"+this.getEmail()+"','"+this.getPass()+"','"+Arrays.toString(this.getSalt())+"','"+this.getSecPass()+"','"+this.getTrdPass()+"')");
 
 			if(x>0) {
 				System.out.println("insertion registration is ok");
@@ -174,11 +178,7 @@ public class User {
 		
 		
 	}
-	private String getSaltString() {
-		byte[] bytes = this.getSalt();
-		
-		return Arrays.toString(bytes);
-	}
+	
 
 	
 	public User retrunUserFromDB(String userName) {
@@ -239,9 +239,24 @@ public class User {
 
 	private void setSameSalt(String string) throws UnsupportedEncodingException {
 		byte [] tempByte = new byte[5];
-		
-			tempByte = string.getBytes("UTF-8");
-
+		char [] charArr;
+		int sign = 1;
+		int sum = 0,byteIndex = 0;
+		charArr = string.toCharArray();
+		for (int i = 1 ; i < charArr.length ; i ++) {
+			if (charArr[i] == '-') {
+				sign = -1;
+			}
+			
+			if (charArr[i] == ',') {
+				tempByte[byteIndex] = (byte) (sum*sign);
+				sign = 1;
+				sum = 0;
+				byteIndex++;
+			}
+			
+			sum += charArr[i];
+		}
 		
 		System.out.println("setSameSalt:"+string.toString());
 		System.out.println("setSameSalt byteArr:"+Arrays.toString(tempByte));
@@ -317,17 +332,19 @@ public class User {
 		
 	}
 
+	
+	
 	private boolean passTest(User dbUser) throws NoSuchAlgorithmException {
-		System.out.println("pass befor"+this.getPass());
+		//System.out.println("pass befor"+this.getPass());
 		this.setPass(this.getPass());
-		if (this.getPass().equals(dbUser.getPass())) {////////////////////////////////////****************************
+		if (this.getPass().equals(dbUser.getPass())) {
 		
 			return true;
 		}
 		
-		System.out.println("pass after"+this.getPass());
+		//System.out.println("pass after"+this.getPass());
 		
-		return true;
+		return false;
 	}
 	
 	private boolean passCheck (String pass, Conf conf) {
@@ -337,6 +354,7 @@ public class User {
 		boolean isUpper = (!conf.isUpCase()); 
 		boolean isLower = (!conf.isLowCase());
 		boolean isSpecial = (!conf.isSepChar());
+		boolean isDictionary = true;
 		
 		if (pass.length() < conf.getLenght()) {
 			System.out.println("the pass is too short");
@@ -351,13 +369,31 @@ public class User {
 		for (int i = 0 ; i < pass.length() ; i ++) {
 			ch = pass.charAt(i);
 			if (Character.isLowerCase(ch)) isLower = true;
-			if (Character.isUpperCase(ch)) isUpper = true;
-			
+			if (Character.isUpperCase(ch)) isUpper = true;	
 		}
+		String line;
 		
-		System.out.println("this is hasdigits, isUpper, isLower, isSpecial: "+hasdigits + isUpper + isLower + isSpecial);
+		try {
+			Scanner scanner = new Scanner(new File("C:\\Users/ohad/git/computerSecurity/computerSecurity/dictionary.txt"));
+			while (scanner.hasNextLine() && isDictionary == true) {
+				line = scanner.nextLine();
+				if(line.equals(pass)) {
+					isDictionary = false;
+					System.out.println(line +" compere "+ isDictionary);
+				}
+				
+			}
+			scanner.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	    
 		
-		return hasdigits & isUpper & isLower & isSpecial;
+		
+		System.out.println("this is hasdigits, isUpper, isLower, isSpecial , isDictionary: "+hasdigits + isUpper + isLower + isSpecial + isDictionary);
+		
+		return hasdigits & isUpper & isLower & isSpecial & isDictionary;
 		
 	}
 	
@@ -394,6 +430,47 @@ public class User {
 		
 		return conf;
 		}
+	
+	public Boolean insertPassUserToDB() {
+		try {
+					
+			//System.out.println("INSERT INTO user"+"(username,email,password) VALUES "+"('"+textField.getText()+"','"+textField_1.getText()+"','"+textField_2.getText()+"')");
+			String newSecPass =this.getPass();
+			String newTrdPass = this.getTrdPass();
+			
+	
+			
+			Class.forName("com.mysql.jdbc.Driver").newInstance();
+			///System.out.println("User details is: " + this.toString());	
+
+			Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/security","root","Zamel13");
+			if (conn != null) {
+				System.out.println("connection OK");
+			}
+			else {System.out.println("connection NOT ok");};
+			Statement myStmt = conn.createStatement();
+			
+			this.deleteUserFromDB();
+			
+			int x = myStmt.executeUpdate("INSERT INTO user"+"(username,email,password,salt,secPass,trdPass) VALUES "+"('"+this.getfName()+this.getlName()+"','"+this.getEmail()+"','"+this.getPass()+"','"+Arrays.toString(this.getSalt())+"','"+newSecPass+"','"+newTrdPass+"')");            
+			
+			if(x>0) {
+				System.out.println("insertion - new Password - registration is ok");
+				myStmt.close();
+				conn.close();
+				return true;
+			}
+			else {
+				System.out.println("insertion - new Password - registration Failed..");
+				myStmt.close();
+				conn.close();
+				return false;
+			}
+			
+		}catch(Exception e1) {System.out.println("insertion - new Password - co nection NOT ok catch"); return false;}
+		
+		
+	}
 }
 
 
